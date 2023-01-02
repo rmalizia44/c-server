@@ -46,13 +46,15 @@ typedef struct client_s {
 client_t* client_new(server_t* server) {
     client_t* client;
     client = (client_t*)malloc(sizeof(client_t)); // TODO: optimize
+    LOG("client connected");
     return client;
 }
 void client_del(client_t* client) {
+    LOG("client closed");
     free(client); // TODO: optimize
 }
 
-int load_config(config_t* config) {
+int config_load(config_t* config) {
     snprintf(config->host, sizeof(config->host), "0.0.0.0");
     config->port = 7171;
     config->backlog = 1024;
@@ -89,21 +91,19 @@ void client_send(client_t* client, const void* data, unsigned size) {
     );
 }
 
-void on_client_close(uv_handle_t* handle) {
-    LOG("client closed");
-    client_del((client_t*)handle);
-}
-
-void on_client_read_ok(client_t* client, unsigned size, const uv_buf_t* buf) {
+void on_client_recv(client_t* client, const void* data, unsigned size) {
     LOG("received %u bytes", size);
-    client_send(client, buf->base, size); // TODO: replace this echo
+    client_send(client, data, size); // TODO: replace this echo
 }
 
 void on_client_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     buf->base = malloc(suggested_size); // TODO: optimize
     buf->len = suggested_size;
 }
-
+void on_client_close(uv_handle_t* handle) {
+    client_t* client = (client_t*)handle;
+    client_del(client);
+}
 void on_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     if(nread < 0) {
         if(nread != UV_EOF) {
@@ -111,11 +111,10 @@ void on_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
         }
         uv_close((uv_handle_t*)stream, on_client_close);
     } else {
-        on_client_read_ok((client_t*)stream, nread, buf);
+        on_client_recv((client_t*)stream, buf->base, nread);
     }
     free(buf->base); // TODO: optimize
 }
-
 void on_server_listen(uv_stream_t* server, int status) {
     client_t* client;
     
@@ -136,7 +135,6 @@ void on_server_listen(uv_stream_t* server, int status) {
     ERROR_CHECK(
         uv_read_start((uv_stream_t*)client, on_client_alloc, on_client_read)
     );
-    LOG("client connected");
 }
 
 int main() {
@@ -146,17 +144,20 @@ int main() {
     struct sockaddr_in addr;
     
     ERROR_CHECK(
-        load_config(&config)
+        config_load(&config)
     );
     
     ERROR_CHECK(
         uv_loop_init(&loop)
     );
     ERROR_CHECK(
+        uv_ip4_addr(config.host, config.port, &addr)
+    );
+    ERROR_CHECK(
         uv_tcp_init(&loop, (uv_tcp_t*)&server)
     );
     ERROR_CHECK(
-        uv_ip4_addr(config.host, config.port, &addr)
+        uv_tcp_nodelay((uv_tcp_t*)&server, 1)
     );
     ERROR_CHECK(
         uv_tcp_bind((uv_tcp_t*)&server, (const struct sockaddr*)&addr, 0)
@@ -165,7 +166,7 @@ int main() {
         uv_listen((uv_stream_t*)&server, config.backlog, on_server_listen)
     );
     
-    LOG("server started on %s:%u", config.host, config.port);
+    LOG("server started on \"%s\":%u", config.host, config.port);
     
     ERROR_CHECK(
         uv_run(&loop, UV_RUN_DEFAULT)
