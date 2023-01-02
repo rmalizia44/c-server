@@ -166,7 +166,7 @@ int main() {
         uv_listen((uv_stream_t*)&server, config.backlog, on_server_listen)
     );
     
-    LOG("server started on \"%s\":%u", config.host, config.port);
+    LOG("server started on %s:%u", config.host, config.port);
     
     ERROR_CHECK(
         uv_run(&loop, UV_RUN_DEFAULT)
