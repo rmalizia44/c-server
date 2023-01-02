@@ -113,25 +113,34 @@ void on_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     }
     free(buf->base); // TODO: optimize
 }
+void on_server_reject(uv_handle_t* handle) {
+    free(handle); // TODO: optimize
+}
 void on_server_listen(uv_stream_t* server, int status) {
     client_t* client;
+    uv_tcp_t* tcp;
     
     ERROR_CHECK(status);
     
     client = client_new((server_t*)server);
     if(client == NULL) {
-        // TODO: server is full, log something
+        tcp = (uv_tcp_t*)malloc(sizeof(uv_tcp_t)); // TODO: optimize
+    } else {
+        tcp = (uv_tcp_t*)client;
+    }
+    ERROR_CHECK(
+        uv_tcp_init(server->loop, tcp)
+    );
+    ERROR_CHECK(
+        uv_accept(server, (uv_stream_t*)tcp)
+    );
+    if(client == NULL) {
         LOG("client rejected");
+        uv_close((uv_handle_t*)tcp, on_server_reject);
         return;
     }
     ERROR_CHECK(
-        uv_tcp_init(server->loop, (uv_tcp_t*)client)
-    );
-    ERROR_CHECK(
-        uv_accept(server, (uv_stream_t*)client)
-    );
-    ERROR_CHECK(
-        uv_read_start((uv_stream_t*)client, on_client_alloc, on_client_read)
+        uv_read_start((uv_stream_t*)tcp, on_client_alloc, on_client_read)
     );
 }
 
