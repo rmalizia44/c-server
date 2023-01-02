@@ -64,8 +64,6 @@ int config_load(config_t* config) {
 void on_client_write(uv_write_t *req, int status) {
     void* ptr;
     
-    LOG("client sent data");
-    
     if(status < 0) {
         ERROR_SHOW(status);
     }
