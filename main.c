@@ -96,12 +96,15 @@ void on_client_close(uv_handle_t* handle) {
     client_t* client = (client_t*)handle;
     client_del(client);
 }
+void client_kick(client_t* client) {
+    uv_close((uv_handle_t*)client, on_client_close);
+}
 void on_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     if(nread < 0) {
         if(nread != UV_EOF) {
             ERROR_SHOW(nread);
         }
-        uv_close((uv_handle_t*)stream, on_client_close);
+        client_kick((client_t*)stream);
     } else {
         on_client_recv((client_t*)stream, buf->base, nread);
     }
