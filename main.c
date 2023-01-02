@@ -62,27 +62,21 @@ int config_load(config_t* config) {
 }
 
 void on_client_write(uv_write_t *req, int status) {
-    void* ptr;
-    
     if(status < 0) {
         ERROR_SHOW(status);
     }
-    
-    ptr = req->data;
-    free(ptr); // TODO: optimize
     free(req); // TODO: optimize
 }
 
 void client_send(client_t* client, const void* data, unsigned size) {
-    void* ptr;
+    char* ptr;
     uv_buf_t buf;
     uv_write_t* req;
     
-    ptr = malloc(size); // TODO: optimize
-    memcpy(ptr, data, size);
-    buf = uv_buf_init(ptr, size);
-    req = (uv_write_t*)malloc(sizeof(uv_write_t));
-    req->data = ptr;
+    ptr = (char*)malloc(sizeof(uv_write_t) + size); // TODO: optimize
+    req = (uv_write_t*)ptr;
+    buf = uv_buf_init(ptr + sizeof(uv_write_t), size);
+    memcpy(buf.base, data, size);
     
     ERROR_CHECK(
         uv_write(req, (uv_stream_t*)client, &buf, 1, on_client_write)
