@@ -1,39 +1,7 @@
-#include <uv.h>
-#include <stdlib.h>
+#include "common.h"
+#include "config.h"
+
 #include <string.h>
-
-#define LOG(...) {\
-    printf("[%s:%u] ",\
-        __FILE__,\
-        __LINE__\
-    );\
-    printf(__VA_ARGS__);\
-    printf("\n");\
-}
-
-#define ERROR_SHOW(expr) {\
-    const int _ec_show = (expr);\
-    printf("[%s:%u] %s\n\t%s\n",\
-        __FILE__,\
-        __LINE__,\
-        uv_err_name(_ec_show),\
-        uv_strerror(_ec_show)\
-    );\
-}
-
-#define ERROR_CHECK(expr) {\
-    const int _ec_check = (expr);\
-    if(_ec_check != 0) {\
-        ERROR_SHOW(_ec_check);\
-        exit(_ec_check);\
-    }\
-}
-
-typedef struct config_s {
-    char host[16];
-    unsigned port;
-    unsigned backlog;
-} config_t;
 
 typedef struct server_s {
     uv_tcp_t tcp;
@@ -54,13 +22,6 @@ client_t* client_new(server_t* server) {
 void client_del(client_t* client) {
     LOG("client closed");
     free(client); // TODO: optimize
-}
-
-int config_load(config_t* config) {
-    snprintf(config->host, sizeof(config->host), "0.0.0.0");
-    config->port = 7171;
-    config->backlog = 1024;
-    return 0;
 }
 
 void on_client_write(uv_write_t *req, int status) {

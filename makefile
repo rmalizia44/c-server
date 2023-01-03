@@ -1,2 +1,2 @@
 all:
-	gcc -o bin/server *.c -luv -Wall -Werror
+	gcc -o bin/server src/*.c -luv -Wall -Werror
