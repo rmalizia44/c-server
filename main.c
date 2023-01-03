@@ -1,4 +1,6 @@
 #include <uv.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define LOG(...) {\
     printf("[%s:%u] ",\
@@ -140,12 +142,23 @@ void on_server_listen(uv_stream_t* server, int status) {
         uv_read_start((uv_stream_t*)tcp, on_client_alloc, on_client_read)
     );
 }
+void server_on_signal(uv_signal_t* handle, int signum) {
+    switch(signum) {
+        case SIGINT:
+            LOG("server interrupted by SIGINT");
+            break;
+        default:
+            LOG("server interrupted by unexpected signal: %i", signum);
+    }
+    exit(0);
+}
 
 int main() {
     uv_loop_t loop;
     config_t config;
     server_t server;
     struct sockaddr_in addr;
+    uv_signal_t signal;
     
     ERROR_CHECK(
         config_load(&config)
@@ -168,6 +181,12 @@ int main() {
     );
     ERROR_CHECK(
         uv_listen((uv_stream_t*)&server, config.backlog, on_server_listen)
+    );
+    ERROR_CHECK(
+        uv_signal_init(&loop, &signal)
+    );
+    ERROR_CHECK(
+        uv_signal_start(&signal, server_on_signal, SIGINT)
     );
     
     LOG("server started on %s:%u", config.host, config.port);
