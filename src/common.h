@@ -1,7 +1,6 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <uv.h> // uv_err_name uv_strerror
 #include <stdio.h> // printf
 #include <stdlib.h> // exit
 
@@ -14,33 +13,13 @@
     printf("\n");\
 }
 
-#define ERROR_SHOW(expr) {\
-    const int _ec_show = (expr);\
-    printf("[%s:%u] %s\n\t%s\n",\
-        __FILE__,\
-        __LINE__,\
-        uv_err_name(_ec_show),\
-        uv_strerror(_ec_show)\
-    );\
-}
+#define ERROR_SHOW(expr) { error_print(__FILE__, __LINE__, expr); }
+#define ERROR_CHECK(expr) { error_check(__FILE__, __LINE__, expr); }
 
-#define ERROR_CHECK(expr) {\
-    const int _ec_check = (expr);\
-    if(_ec_check != 0) {\
-        ERROR_SHOW(_ec_check);\
-        exit(_ec_check);\
-    }\
-}
+void error_print(const char* file, unsigned line, int ec);
+void error_check(const char* file, unsigned line, int ec);
 
-static inline void* heap_new(unsigned size) {
-    void* ptr = malloc(size);
-    if(ptr == NULL) {
-        ERROR_CHECK(UV_ENOMEM);
-    }
-    return ptr;
-}
-static inline void heap_del(void* ptr) {
-    free(ptr);
-}
+void* heap_new(unsigned size);
+void heap_del(void* ptr);
 
 #endif
