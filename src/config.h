@@ -5,9 +5,10 @@ typedef struct config_s {
     char host[16];
     unsigned port;
     unsigned backlog;
+    unsigned max_clients;
 } config_t;
 
 
-int config_load(config_t* config);
+int config_load(config_t* self);
 
 #endif

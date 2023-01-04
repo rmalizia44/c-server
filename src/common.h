@@ -32,4 +32,15 @@
     }\
 }
 
+static inline void* heap_new(unsigned size) {
+    void* ptr = malloc(size);
+    if(ptr == NULL) {
+        ERROR_CHECK(UV_ENOMEM);
+    }
+    return ptr;
+}
+static inline void heap_del(void* ptr) {
+    free(ptr);
+}
+
 #endif
