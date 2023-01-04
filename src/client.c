@@ -88,19 +88,43 @@ static void client_on_recv(client_t* client, const void* data, unsigned size) {
     }
 }
 static void client_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-    buf->base = heap_new(suggested_size); // TODO: optimize
-    buf->len = suggested_size;
+    server_buf_t buffer;
+    client_t* client = (client_t*)handle->data;
+    server_t* server = client->server;
+    
+    if(server->on_new != NULL) {
+        server->on_new(server, &buffer);
+    } else {
+        buffer.ptr = heap_new(suggested_size); // TODO: optimize
+        buffer.len = suggested_size;
+    }
+    
+    buf->base = buffer.ptr;
+    buf->len = buffer.len;
 }
 static void client_on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
+    server_buf_t buffer;
+    client_t* client = (client_t*)stream->data;
+    server_t* server = client->server;
+    
+    buffer.ptr = buf->base;
+    buffer.len = buf->len;
+    
     if(nread < 0) {
         if(nread != UV_EOF) {
             ERROR_SHOW(nread);
         }
-        client_close((client_t*)stream->data);
+        client_close(client);
     } else {
-        client_on_recv((client_t*)stream->data, buf->base, nread);
+        client_on_recv(client, buf->base, nread);
     }
-    heap_del(buf->base); // TODO: optimize
+    
+    if(server->on_del != NULL) {
+        server->on_del(server, &buffer);
+    } else {
+        heap_del(buffer.ptr); // TODO: optimize
+    }
+    
 }
 int client_start(client_t* client) {
     ERROR_CHECK(

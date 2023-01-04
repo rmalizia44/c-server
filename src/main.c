@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include <uv.h>
 
+void on_new(struct server_s* server, server_buf_t* buf) {
+    buf->len = 1;
+    buf->ptr = heap_new(buf->len);
+}
+void on_del(struct server_s* server, const server_buf_t* buf) {
+    heap_del(buf->ptr);
+}
+
 void on_start(server_t* server) {
     printf("[*] server started on %s:%u\n", server->config->host, server->config->port);
 }
@@ -28,6 +36,8 @@ int main() {
     server_t server = {0};
     
     server.data = NULL;
+    server.on_new = on_new;
+    server.on_del = on_del;
     server.on_start = on_start;
     server.on_terminate = on_terminate;
     server.on_connect = on_connect;
