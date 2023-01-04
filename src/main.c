@@ -7,7 +7,7 @@ struct server_s;
 typedef struct server_s server_t;
 
 typedef struct client_s {
-    //server_t* server;
+    server_t* server;
     uv_tcp_t* tcp;
     
 } client_t;
@@ -16,9 +16,16 @@ struct server_s {
     uv_tcp_t tcp;
     config_t config;
     client_t* clients;
+    void (*on_connect)(server_t* self, unsigned id);
+    void (*on_disconnect)(server_t* self, unsigned id);
+    void (*on_receive)(server_t* self, unsigned id, const char* data, unsigned size);
     unsigned seed;
 };
 
+unsigned client_id(client_t* client) {
+    server_t* server = client->server;
+    return client - server->clients;
+}
 client_t* client_new(server_t* server, uv_tcp_t* tcp) {
     unsigned id;
     client_t* client;
@@ -30,15 +37,20 @@ client_t* client_new(server_t* server, uv_tcp_t* tcp) {
         
         if(client->tcp == NULL) {
             tcp->data = client;
-            //client->server = server;
+            client->server = server;
             client->tcp = tcp;
+            server->on_connect(client->server, id);
             return client;
         }
     }
     return NULL;
 }
 void client_del(client_t* client) {
+    server_t* server = client->server;
+    unsigned id = client_id(client);
+    
     client->tcp = NULL;
+    server->on_disconnect(server, id);
 }
 void client_on_write(uv_write_t *req, int status) {
     if(status < 0) {
@@ -63,8 +75,10 @@ void client_send(client_t* client, const void* data, unsigned size) {
 }
 
 void client_on_recv(client_t* client, const void* data, unsigned size) {
-    LOG("received %u bytes", size);
-    client_send(client, data, size); // TODO: replace this echo
+    server_t* server = client->server;
+    unsigned id = client_id(client);
+    
+    server->on_receive(server, id, data, size);
 }
 
 void client_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
@@ -127,6 +141,48 @@ void server_on_signal(uv_signal_t* handle, int signum) {
     }
     exit(0);
 }
+client_t* server_get_client(server_t* self, unsigned id) {
+    client_t* client;
+    
+    if(id >= self->config.max_clients) {
+        return NULL;
+    }
+    
+    client = self->clients + id;
+    if(client->tcp == NULL) {
+        return NULL;
+    }
+    
+    return client;
+}
+
+void server_send(server_t* self, unsigned id, const char* data, unsigned size) {
+    client_t* client = server_get_client(self, id);
+    if(client == NULL) {
+        LOG("invalid client id to send: %u", id)
+        return;
+    }
+    client_send(client, data, size);
+}
+void server_kick(server_t* self, unsigned id) {
+    client_t* client = server_get_client(self, id);
+    if(client == NULL) {
+        LOG("invalid client id to kick: %u", id)
+        return;
+    }
+    client_close(client);
+}
+
+void on_connect(server_t* self, unsigned id) {
+    LOG("[%u] connected", id);
+}
+void on_disconnect(server_t* self, unsigned id) {
+    LOG("[%u] disconnected", id);
+}
+void on_receive(server_t* self, unsigned id, const char* data, unsigned size) {
+    LOG("[%u] received %u bytes", id, size);
+    server_send(self, id, data, size);
+}
 
 int main() {
     uv_loop_t loop;
@@ -139,6 +195,9 @@ int main() {
     );
     server.clients = (client_t*)calloc(server.config.max_clients, sizeof(client_t));
     server.seed = 0;
+    server.on_connect = on_connect;
+    server.on_disconnect = on_disconnect;
+    server.on_receive = on_receive;
     
     ERROR_CHECK(
         uv_loop_init(&loop)
