@@ -164,6 +164,18 @@ void server_send(server_t* self, unsigned id, const char* data, unsigned size) {
     }
     client_send(client, data, size);
 }
+void server_broadcast(server_t* self, unsigned exclude, const char* data, unsigned size) {
+    client_t* client;
+    for(unsigned id = 0; id < self->config.max_clients; ++id) {
+        if(id == exclude) {
+            continue;
+        }
+        client = server_get_client(self, id);
+        if(client != NULL) {
+            client_send(client, data, size);
+        }
+    }
+}
 void server_kick(server_t* self, unsigned id) {
     client_t* client = server_get_client(self, id);
     if(client == NULL) {
@@ -181,7 +193,7 @@ void on_disconnect(server_t* self, unsigned id) {
 }
 void on_receive(server_t* self, unsigned id, const char* data, unsigned size) {
     LOG("[%u] received %u bytes", id, size);
-    server_send(self, id, data, size);
+    server_broadcast(self, id, data, size);
 }
 
 int main() {
