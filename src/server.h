@@ -15,9 +15,10 @@ typedef struct server_reactor_s {
 } server_reactor_t;
 
 typedef struct server_s {
+    const struct config_s* config;
+    const server_reactor_t* reactor;
     struct uv_tcp_s* tcp;
     struct uv_signal_s* signal;
-    const server_reactor_t* reactor;
     struct client_s* clients;
     unsigned max_clients;
     unsigned seed;

@@ -6,5 +6,6 @@ int config_load(config_t* self) {
     self->port = 7171;
     self->backlog = 1024;
     self->max_clients = 100;
+    self->timeout = 10000;
     return 0;
 }

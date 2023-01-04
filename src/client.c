@@ -1,10 +1,14 @@
 #include "client.h"
 #include "common.h"
+#include "config.h"
 #include "server.h"
 #include <uv.h>
 #include <string.h>
 
-unsigned client_id(client_t* client) {
+static void client_on_close(uv_handle_t* handle) {
+    heap_del(handle);
+}
+static unsigned client_id(client_t* client) {
     server_t* server = client->server;
     return client - server->clients;
 }
@@ -18,23 +22,39 @@ client_t* client_new(server_t* server, uv_tcp_t* tcp) {
         client = server->clients + id;
         
         if(client->tcp == NULL) {
-            tcp->data = client;
             client->server = server;
             client->tcp = tcp;
+            client->tcp->data = client;
+            client->timer = (uv_timer_t*)heap_new(sizeof(uv_timer_t));
+            client->timer->data = client;
             server->reactor->on_connect(client->server, id);
             return client;
         }
     }
     return NULL;
 }
-void client_del(client_t* client) {
+void client_close(client_t* client) {
     server_t* server = client->server;
     unsigned id = client_id(client);
     
+    uv_close((uv_handle_t*)client->tcp, client_on_close);
+    uv_close((uv_handle_t*)client->timer, client_on_close);
+    
     client->tcp = NULL;
+    client->timer = NULL;
+    
     server->reactor->on_disconnect(server, id);
 }
-void client_on_write(uv_write_t *req, int status) {
+static void client_on_time(uv_timer_t* handle) {
+    client_close((client_t*)handle->data);
+}
+static void client_reset_timer(client_t* client) {
+    unsigned timeout = client->server->config->timeout;
+    ERROR_CHECK(
+        uv_timer_start(client->timer, client_on_time, timeout, 0)
+    );
+}
+static void client_on_write(uv_write_t *req, int status) {
     if(status < 0) {
         ERROR_SHOW(status);
     }
@@ -54,25 +74,18 @@ void client_send(client_t* client, const void* data, unsigned size) {
         uv_write(req, (uv_stream_t*)client->tcp, &buf, 1, client_on_write)
     );
 }
-void client_on_recv(client_t* client, const void* data, unsigned size) {
+static void client_on_recv(client_t* client, const void* data, unsigned size) {
     server_t* server = client->server;
     unsigned id = client_id(client);
     
+    client_reset_timer(client);
     server->reactor->on_receive(server, id, data, size);
 }
-void client_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+static void client_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     buf->base = heap_new(suggested_size); // TODO: optimize
     buf->len = suggested_size;
 }
-void client_on_close(uv_handle_t* handle) {
-    heap_del(handle);
-}
-void client_close(client_t* client) {
-    uv_handle_t* handle = (uv_handle_t*)client->tcp;
-    client_del(client);
-    uv_close(handle, client_on_close);
-}
-void client_on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
+static void client_on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     if(nread < 0) {
         if(nread != UV_EOF) {
             ERROR_SHOW(nread);
@@ -83,7 +96,13 @@ void client_on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     }
     heap_del(buf->base); // TODO: optimize
 }
-int client_read_start(client_t* client) {
+int client_start(client_t* client) {
+    ERROR_CHECK(
+        uv_timer_init(client->tcp->loop, client->timer)
+    );
+    
+    client_reset_timer(client);
+    
     ERROR_CHECK(
         uv_read_start((uv_stream_t*)client->tcp, client_on_alloc, client_on_read)
     );

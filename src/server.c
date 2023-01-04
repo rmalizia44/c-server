@@ -5,10 +5,10 @@
 #include <uv.h>
 
 
-void server_on_reject(uv_handle_t* handle) {
+static void server_on_reject(uv_handle_t* handle) {
     heap_del(handle);
 }
-void server_on_listen(uv_stream_t* stream, int status) {
+static void server_on_listen(uv_stream_t* stream, int status) {
     uv_tcp_t* tcp;
     client_t* client;
     
@@ -31,10 +31,10 @@ void server_on_listen(uv_stream_t* stream, int status) {
     }
     
     ERROR_CHECK(
-        client_read_start(client)
+        client_start(client)
     );
 }
-void server_on_signal(uv_signal_t* handle, int signum) {
+static void server_on_signal(uv_signal_t* handle, int signum) {
     switch(signum) {
         case SIGINT:
             LOG("server interrupted by SIGINT");
@@ -44,7 +44,7 @@ void server_on_signal(uv_signal_t* handle, int signum) {
     }
     exit(0);
 }
-client_t* server_get_client(server_t* self, unsigned id) {
+static client_t* server_get_client(server_t* self, unsigned id) {
     client_t* client;
     
     if(id >= self->max_clients) {
@@ -89,10 +89,11 @@ void server_kick(server_t* self, unsigned id) {
 int server_init(server_t* self, uv_loop_t* loop, const config_t* config, const server_reactor_t* reactor) {
     struct sockaddr_in addr;
     
+    self->config = config;
+    self->reactor = reactor;
     self->max_clients = config->max_clients;
     self->clients = (client_t*)calloc(self->max_clients, sizeof(client_t));
     self->seed = 0;
-    self->reactor = reactor;
     self->tcp = (uv_tcp_t*)heap_new(sizeof(uv_tcp_t));
     self->tcp->data = self;
     self->signal = (uv_signal_t*)heap_new(sizeof(uv_signal_t));

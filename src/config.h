@@ -6,6 +6,7 @@ typedef struct config_s {
     unsigned port;
     unsigned backlog;
     unsigned max_clients;
+    unsigned timeout;
 } config_t;
 
 
