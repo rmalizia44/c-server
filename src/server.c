@@ -4,7 +4,6 @@
 #include "client.h"
 #include <uv.h>
 
-
 static void server_on_reject(uv_handle_t* handle) {
     heap_del(handle);
 }
@@ -35,13 +34,20 @@ static void server_on_listen(uv_stream_t* stream, int status) {
     );
 }
 static void server_on_signal(uv_signal_t* handle, int signum) {
-    switch(signum) {
+    server_t* server = (server_t*)handle->data;
+    
+    /*switch(signum) {
         case SIGINT:
             LOG("server interrupted by SIGINT");
             break;
         default:
             LOG("server interrupted by unexpected signal: %i", signum);
+    }*/
+    
+    if(server->on_terminate != NULL) {
+        server->on_terminate(server);
     }
+    
     exit(0);
 }
 static client_t* server_get_client(server_t* self, unsigned id) {
@@ -86,11 +92,10 @@ void server_kick(server_t* self, unsigned id) {
     }
     client_close(client);
 }
-int server_init(server_t* self, uv_loop_t* loop, const config_t* config, const server_reactor_t* reactor) {
+int server_init(server_t* self, uv_loop_t* loop, const config_t* config) {
     struct sockaddr_in addr;
     
     self->config = config;
-    self->reactor = reactor;
     self->max_clients = config->max_clients;
     self->clients = (client_t*)calloc(self->max_clients, sizeof(client_t));
     self->seed = 0;
@@ -120,6 +125,10 @@ int server_init(server_t* self, uv_loop_t* loop, const config_t* config, const s
     ERROR_CHECK(
         uv_signal_start(self->signal, server_on_signal, SIGINT)
     );
+    
+    if(self->on_start != NULL) {
+        self->on_start(self);
+    }
     
     return 0;
 }

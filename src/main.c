@@ -4,22 +4,35 @@
 #include <stdio.h>
 #include <uv.h>
 
-void on_connect(server_t* self, unsigned id) {
+void on_start(server_t* server) {
+    printf("[*] server started on %s:%u\n", server->config->host, server->config->port);
+}
+void on_terminate(server_t* server) {
+    printf("[*] server terminated\n");
+}
+
+void on_connect(server_t* server, unsigned id) {
     printf("[%u] connected\n", id);
 }
-void on_disconnect(server_t* self, unsigned id) {
+void on_disconnect(server_t* server, unsigned id) {
     printf("[%u] disconnected\n", id);
 }
-void on_receive(server_t* self, unsigned id, const char* data, unsigned size) {
+void on_receive(server_t* server, unsigned id, const char* data, unsigned size) {
     printf("[%u] received %u bytes\n", id, size);
-    server_broadcast(self, id, data, size);
+    server_broadcast(server, id, data, size);
 }
 
 int main() {
     uv_loop_t loop;
-    config_t config;
-    server_t server;
-    server_reactor_t reactor = { on_connect, on_disconnect, on_receive };
+    config_t config = {0};
+    server_t server = {0};
+    
+    server.data = NULL;
+    server.on_start = on_start;
+    server.on_terminate = on_terminate;
+    server.on_connect = on_connect;
+    server.on_disconnect = on_disconnect;
+    server.on_receive = on_receive;
     
     ERROR_CHECK(
         uv_loop_init(&loop)
@@ -28,10 +41,8 @@ int main() {
         config_load(&config)
     );
     ERROR_CHECK(
-        server_init(&server, &loop, &config, &reactor)
+        server_init(&server, &loop, &config)
     );
-    
-    printf("server started on %s:%u\n", config.host, config.port);
     
     ERROR_CHECK(
         uv_run(&loop, UV_RUN_DEFAULT)

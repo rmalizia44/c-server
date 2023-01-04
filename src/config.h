@@ -9,7 +9,6 @@ typedef struct config_s {
     unsigned timeout;
 } config_t;
 
-
 int config_load(config_t* self);
 
 #endif

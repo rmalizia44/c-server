@@ -27,7 +27,9 @@ client_t* client_new(server_t* server, uv_tcp_t* tcp) {
             client->tcp->data = client;
             client->timer = (uv_timer_t*)heap_new(sizeof(uv_timer_t));
             client->timer->data = client;
-            server->reactor->on_connect(client->server, id);
+            if(server->on_connect != NULL) {
+                server->on_connect(client->server, id);
+            }
             return client;
         }
     }
@@ -43,7 +45,9 @@ void client_close(client_t* client) {
     client->tcp = NULL;
     client->timer = NULL;
     
-    server->reactor->on_disconnect(server, id);
+    if(server->on_disconnect != NULL) {
+        server->on_disconnect(server, id);
+    }
 }
 static void client_on_time(uv_timer_t* handle) {
     client_close((client_t*)handle->data);
@@ -79,7 +83,9 @@ static void client_on_recv(client_t* client, const void* data, unsigned size) {
     unsigned id = client_id(client);
     
     client_reset_timer(client);
-    server->reactor->on_receive(server, id, data, size);
+    if(server->on_receive != NULL) {
+        server->on_receive(server, id, data, size);
+    }
 }
 static void client_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     buf->base = heap_new(suggested_size); // TODO: optimize
