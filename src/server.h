@@ -8,8 +8,6 @@ struct uv_signal_s;
 struct uv_loop_s;
 struct server_s;
 
-
-
 typedef struct server_s {
     const struct config_s* config;
     struct uv_tcp_s* tcp;
