@@ -96,13 +96,15 @@ int server_init(server_t* self, uv_loop_t* loop, const config_t* config) {
     struct sockaddr_in addr;
     
     self->config = config;
-    self->max_clients = config->max_clients;
-    self->clients = (client_t*)calloc(self->max_clients, sizeof(client_t));
     self->seed = 0;
     self->tcp = (uv_tcp_t*)heap_new(sizeof(uv_tcp_t));
     self->tcp->data = self;
     self->signal = (uv_signal_t*)heap_new(sizeof(uv_signal_t));
     self->signal->data = self;
+    self->max_clients = config->max_clients;
+    self->clients = (client_t*)heap_new(self->max_clients * sizeof(client_t));
+    
+    memset(self->clients, 0, self->max_clients * sizeof(client_t));
     
     ERROR_CHECK(
         uv_ip4_addr(config->host, config->port, &addr)
