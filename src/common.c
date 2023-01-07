@@ -3,21 +3,16 @@
 #include <stdlib.h> // malloc free
 
 void error_print(const char* file, unsigned line, int ec) {
-    LOG("%s\n\t%s", uv_err_name(ec), uv_strerror(ec));
-}
-void error_check(const char* file, unsigned line, int ec) { 
-    if(ec != 0) {
-        ERROR_SHOW(ec);
-        exit(ec);
-    }
+    printf("[%s:%u] ", file, line);
+    printf("%s\n\t%s", uv_err_name(ec), uv_strerror(ec));
+    printf("\n");
 }
 
 void* heap_new(unsigned size) {
-    void* ptr = malloc(size);
-    if(ptr == NULL) {
-        ERROR_CHECK(UV_ENOMEM);
-    }
-    return ptr;
+    /*if(rand() % 10 == 0) {
+        return NULL;
+    }*/
+    return malloc(size);
 }
 void heap_del(void* ptr) {
     free(ptr);
