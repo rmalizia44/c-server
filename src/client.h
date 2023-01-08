@@ -14,8 +14,7 @@ typedef struct client_s {
     
 } client_t;
 
-client_t* client_new(struct server_s* server, struct uv_tcp_s* tcp);
-int client_start(client_t* client);
+int client_init_start(client_t* client, struct server_s* server, struct uv_tcp_s* tcp);
 void client_close(client_t* client);
 void client_send(client_t* client, const void* data, unsigned size);
 

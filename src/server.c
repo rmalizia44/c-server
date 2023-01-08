@@ -4,6 +4,22 @@
 #include "client.h"
 #include <uv.h>
 
+static client_t* server_client_unused(server_t* server) {
+    unsigned id;
+    client_t* client;
+    
+    for(unsigned i = 0; i < server->max_clients; ++i) {
+        id = server->seed;
+        server->seed = (server->seed + 1) % server->max_clients;
+        client = server->clients + id;
+        
+        if(client->tcp == NULL) {
+            return client;
+        }
+    }
+    
+    return NULL;
+}
 static void server_on_reject(uv_handle_t* handle) {
     heap_del(handle);
 }
@@ -31,17 +47,17 @@ static void server_on_listen(uv_stream_t* stream, int ec) {
         return;
     }
     
-    client = client_new((server_t*)stream->data, tcp);
+    client = server_client_unused(server);
     if(client == NULL) {
         LOG("client rejected");
         uv_close((uv_handle_t*)tcp, server_on_reject);
         return;
     }
     
-    ec = client_start(client);
+    ec = client_init_start(client, server, tcp);
     if(ec != 0) {
         ERROR_SHOW(ec);
-        client_close(client);
+        uv_close((uv_handle_t*)tcp, server_on_reject);
         return;
     }
 }

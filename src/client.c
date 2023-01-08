@@ -12,36 +12,6 @@ static unsigned client_id(client_t* client) {
     server_t* server = client->server;
     return client - server->clients;
 }
-client_t* client_new(server_t* server, uv_tcp_t* tcp) {
-    unsigned id;
-    client_t* client;
-    uv_timer_t* timer;
-    
-    timer = (uv_timer_t*)heap_new(sizeof(uv_timer_t));
-    if(timer == NULL) {
-        ERROR_SHOW(UV_ENOMEM);
-        return NULL;
-    }
-    
-    for(unsigned i = 0; i < server->max_clients; ++i) {
-        id = server->seed;
-        server->seed = (server->seed + 1) % server->max_clients;
-        client = server->clients + id;
-        
-        if(client->tcp == NULL) {
-            client->server = server;
-            client->tcp = tcp;
-            client->tcp->data = client;
-            client->timer = timer;
-            client->timer->data = client;
-            if(server->on_connect != NULL) {
-                server->on_connect(client->server, id);
-            }
-            return client;
-        }
-    }
-    return NULL;
-}
 void client_close(client_t* client) {
     server_t* server = client->server;
     unsigned id = client_id(client);
@@ -148,19 +118,32 @@ static void client_on_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* b
     }
     
 }
-int client_start(client_t* client) {
-    int ec;
+int client_init_start(client_t* client, server_t* server, struct uv_tcp_s* tcp) {
+    int ec = UV_ENOMEM;
+    uv_timer_t* timer;
     
-    ec = uv_timer_init(client->tcp->loop, client->timer);
-    if(ec != 0) {
+    timer = (uv_timer_t*)heap_new(sizeof(uv_timer_t));
+    if(timer == NULL) {
         ERROR_SHOW(ec);
         return ec;
     }
     
-    ec = uv_read_start((uv_stream_t*)client->tcp, client_on_alloc, client_on_read);
+    ec = uv_timer_init(tcp->loop, timer)
+      || uv_read_start((uv_stream_t*)tcp, client_on_alloc, client_on_read);
     if(ec != 0) {
         ERROR_SHOW(ec);
+        heap_del(timer);
         return ec;
+    }
+    
+    client->server = server;
+    client->tcp = tcp;
+    client->tcp->data = client;
+    client->timer = timer;
+    client->timer->data = client;
+    
+    if(server->on_connect != NULL) {
+        server->on_connect(client->server, client_id(client));
     }
     
     client_reset_timer(client);
