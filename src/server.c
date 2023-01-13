@@ -39,10 +39,17 @@ static void server_on_listen(uv_stream_t* stream, int ec) {
         ERROR_SHOW(UV_ENOMEM);
         return;
     }
-    ec = uv_tcp_init(stream->loop, tcp)
-        || uv_accept(stream, (uv_stream_t*)tcp);
+    
+    ec = uv_tcp_init(stream->loop, tcp);
     if(ec != 0) {
         heap_del(tcp);
+        ERROR_SHOW(ec);
+        return;
+    }
+    
+    ec = uv_accept(stream, (uv_stream_t*)tcp);
+    if(ec != 0) {
+        uv_close((uv_handle_t*)tcp, server_on_reject);
         ERROR_SHOW(ec);
         return;
     }

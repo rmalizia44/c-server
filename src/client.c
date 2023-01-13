@@ -128,11 +128,17 @@ int client_init_start(client_t* client, server_t* server, struct uv_tcp_s* tcp) 
         return ec;
     }
     
-    ec = uv_timer_init(tcp->loop, timer)
-      || uv_read_start((uv_stream_t*)tcp, client_on_alloc, client_on_read);
+    ec = uv_timer_init(tcp->loop, timer);
     if(ec != 0) {
         ERROR_SHOW(ec);
         heap_del(timer);
+        return ec;
+    }
+    
+    ec = uv_read_start((uv_stream_t*)tcp, client_on_alloc, client_on_read);
+    if(ec != 0) {
+        ERROR_SHOW(ec);
+        uv_close((uv_handle_t*)timer, client_on_close);
         return ec;
     }
     
