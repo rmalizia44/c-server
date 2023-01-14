@@ -48,6 +48,13 @@ static void server_on_listen(uv_stream_t* stream, int ec) {
         return;
     }
     
+    ec = uv_tcp_nodelay(tcp, 1);
+    if(ec != 0) {
+        uv_close((uv_handle_t*)tcp, server_on_reject);
+        ERROR_SHOW(ec);
+        return;
+    }
+    
     ec = uv_accept(stream, (uv_stream_t*)tcp);
     if(ec != 0) {
         uv_close((uv_handle_t*)tcp, server_on_reject);
