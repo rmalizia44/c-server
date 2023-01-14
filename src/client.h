@@ -6,6 +6,7 @@
 struct server_s;
 struct uv_tcp_s;
 struct uv_timer_s;
+struct shared_s;
 
 typedef struct client_s {
     struct server_s* server;
@@ -16,6 +17,6 @@ typedef struct client_s {
 
 int client_init_start(client_t* client, struct server_s* server, struct uv_tcp_s* tcp);
 void client_close(client_t* client);
-void client_send(client_t* client, const void* data, unsigned size);
+void client_send(client_t* client, struct shared_s* shared);
 
 #endif

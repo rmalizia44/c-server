@@ -7,6 +7,7 @@ struct uv_tcp_s;
 struct uv_signal_s;
 struct uv_loop_s;
 struct server_s;
+struct shared_s;
 
 typedef struct server_buf_s {
     void* ptr;
@@ -33,8 +34,8 @@ typedef struct server_s {
 int server_init(server_t* server, struct uv_loop_s* loop, const struct config_s* config);
 int server_start(server_t* server);
 void server_close(server_t* server, int ec);
-void server_send(server_t* server, unsigned id, const char* data, unsigned size);
-void server_broadcast(server_t* server, unsigned exclude, const char* data, unsigned size);
+void server_send(server_t* server, unsigned id, struct shared_s* shared);
+void server_broadcast(server_t* server, unsigned exclude, struct shared_s* shared);
 void server_kick(server_t* server, unsigned id);
 void server_kick_all(server_t* server);
 

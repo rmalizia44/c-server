@@ -1,6 +1,7 @@
 #include "common.h"
 #include "config.h"
 #include "server.h"
+#include "shared.h"
 #include <stdio.h>
 #include <uv.h>
 
@@ -38,7 +39,14 @@ void on_disconnect(server_t* server, unsigned id) {
 }
 void on_receive(server_t* server, unsigned id, const char* data, unsigned size) {
     printf("[%u] received %u bytes\n", id, size);
-    server_broadcast(server, id, data, size);
+    shared_t* shared = shared_new(size);
+    if(shared == NULL) {
+        ERROR_SHOW(UV_ENOMEM);
+        return;
+    }
+    memcpy(shared->data, data, size);
+    server_broadcast(server, id, shared);
+    shared_del(shared);
 }
 
 void on_signal_interrupt(uv_signal_t* handle, int signum) {

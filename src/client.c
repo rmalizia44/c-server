@@ -2,6 +2,7 @@
 #include "common.h"
 #include "config.h"
 #include "server.h"
+#include "shared.h"
 #include <uv.h>
 #include <string.h>
 
@@ -46,29 +47,28 @@ static void client_on_write(uv_write_t *req, int status) {
     if(status < 0) {
         ERROR_SHOW(status);
     }
+    shared_del((shared_t*)req->data);
     heap_del(req); // TODO: optimize
 }
-void client_send(client_t* client, const void* data, unsigned size) {
+void client_send(client_t* client, shared_t* shared) {
     int ec;
-    char* ptr;
     uv_buf_t buf;
     uv_write_t* req;
     
-    ptr = (char*)heap_new(sizeof(uv_write_t) + size); // TODO: optimize
-    if(ptr == NULL) {
+    req = (uv_write_t*)heap_new(sizeof(uv_write_t)); // TODO: optimize
+    if(req == NULL) {
         ERROR_SHOW(UV_ENOMEM);
         client_close(client);
         return;
     }
-    req = (uv_write_t*)ptr;
-    buf = uv_buf_init(ptr + sizeof(uv_write_t), size);
-    memcpy(buf.base, data, size);
-    
+    buf = uv_buf_init(shared->data, shared->size);
     ec = uv_write(req, (uv_stream_t*)client->tcp, &buf, 1, client_on_write);
     if(ec != 0) {
         ERROR_SHOW(ec);
+        heap_del(req);
         client_close(client);
     }
+    req->data = shared_copy(shared);
 }
 static void client_on_recv(client_t* client, const void* data, unsigned size) {
     server_t* server = client->server;

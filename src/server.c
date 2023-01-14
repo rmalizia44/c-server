@@ -2,6 +2,7 @@
 #include "common.h"
 #include "config.h"
 #include "client.h"
+#include "shared.h"
 #include <uv.h>
 
 static client_t* server_client_unused(server_t* server) {
@@ -95,15 +96,15 @@ static client_t* server_get_client(server_t* server, unsigned id) {
     }
     return server_get_client_bound_unchecked(server, id);
 }
-void server_send(server_t* server, unsigned id, const char* data, unsigned size) {
+void server_send(server_t* server, unsigned id, shared_t* shared) {
     client_t* client = server_get_client(server, id);
     if(client == NULL) {
         LOG("invalid client id to send: %u", id)
         return;
     }
-    client_send(client, data, size);
+    client_send(client, shared);
 }
-void server_broadcast(server_t* server, unsigned exclude, const char* data, unsigned size) {
+void server_broadcast(server_t* server, unsigned exclude, shared_t* shared) {
     client_t* client;
     for(unsigned id = 0; id < server->max_clients; ++id) {
         if(id == exclude) {
@@ -111,7 +112,7 @@ void server_broadcast(server_t* server, unsigned exclude, const char* data, unsi
         }
         client = server_get_client_bound_unchecked(server, id);
         if(client != NULL) {
-            client_send(client, data, size);
+            client_send(client, shared);
         }
     }
 }
