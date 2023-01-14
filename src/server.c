@@ -103,16 +103,35 @@ static client_t* server_get_client(server_t* server, unsigned id) {
     }
     return server_get_client_bound_unchecked(server, id);
 }
-void server_send(server_t* server, unsigned id, shared_t* shared) {
+int server_send(server_t* server, unsigned id, const char* data, unsigned size) {
     client_t* client = server_get_client(server, id);
+    shared_t* shared;
+    
     if(client == NULL) {
         LOG("invalid client id to send: %u", id)
-        return;
+        return UV_EINVAL;
     }
+    shared = shared_new(size);
+    if(shared == NULL) {
+        ERROR_SHOW(UV_ENOMEM);
+        return UV_ENOMEM;
+    }
+    memcpy(shared->data, data, size);
     client_send(client, shared);
+    shared_del(shared);
+    return 0;
 }
-void server_broadcast(server_t* server, unsigned exclude, shared_t* shared) {
+int server_broadcast(server_t* server, unsigned exclude, const char* data, unsigned size) {
     client_t* client;
+    shared_t* shared;
+    
+    shared = shared_new(size);
+    if(shared == NULL) {
+        ERROR_SHOW(UV_ENOMEM);
+        return UV_ENOMEM;
+    }
+    memcpy(shared->data, data, size);
+    
     for(unsigned id = 0; id < server->max_clients; ++id) {
         if(id == exclude) {
             continue;
@@ -122,6 +141,9 @@ void server_broadcast(server_t* server, unsigned exclude, shared_t* shared) {
             client_send(client, shared);
         }
     }
+    
+    shared_del(shared);
+    return 0;
 }
 void server_kick(server_t* server, unsigned id) {
     client_t* client = server_get_client(server, id);
