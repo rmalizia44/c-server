@@ -14,18 +14,17 @@ static client_t* server_client_unused(server_t* server) {
         server->seed = (server->seed + 1) % server->max_clients;
         client = server->clients + id;
         
-        if(client->tcp == NULL) {
+        if(client->state == CLIENT_STOPPED) {
             return client;
         }
     }
     
     return NULL;
 }
-static void server_on_reject(uv_handle_t* handle) {
+/*static void server_on_reject(uv_handle_t* handle) {
     heap_del(handle);
-}
+}*/
 static void server_on_listen(uv_stream_t* stream, int ec) {
-    uv_tcp_t* tcp;
     client_t* client;
     server_t* server = (server_t*)stream->data;
     
@@ -35,46 +34,20 @@ static void server_on_listen(uv_stream_t* stream, int ec) {
         return;
     }
     
-    tcp = (uv_tcp_t*)heap_new(sizeof(uv_tcp_t)); // TODO: optimize
-    if(tcp == NULL) {
-        ERROR_SHOW(UV_ENOMEM);
-        return;
-    }
-    
-    ec = uv_tcp_init(stream->loop, tcp);
-    if(ec != 0) {
-        heap_del(tcp);
-        ERROR_SHOW(ec);
-        return;
-    }
-    
-    ec = uv_tcp_nodelay(tcp, 1);
-    if(ec != 0) {
-        uv_close((uv_handle_t*)tcp, server_on_reject);
-        ERROR_SHOW(ec);
-        return;
-    }
-    
-    ec = uv_accept(stream, (uv_stream_t*)tcp);
-    if(ec != 0) {
-        uv_close((uv_handle_t*)tcp, server_on_reject);
-        ERROR_SHOW(ec);
-        return;
-    }
-    
     client = server_client_unused(server);
     if(client == NULL) {
         LOG("client rejected");
-        uv_close((uv_handle_t*)tcp, server_on_reject);
         return;
     }
     
-    ec = client_init_start(client, server, tcp);
+    ec = client_init_start(client, server);
     if(ec != 0) {
         ERROR_SHOW(ec);
-        uv_close((uv_handle_t*)tcp, server_on_reject);
         return;
     }
+}
+static void server_closed() {
+    
 }
 static void server_on_close(uv_handle_t* handle) {
     server_t* server = (server_t*)handle->data;
@@ -83,6 +56,7 @@ static void server_on_close(uv_handle_t* handle) {
         server->on_terminate(server, server->ec);
     }
     
+    // TODO: this is causing segfault (clients tcp/timers are closing)
     heap_del(server->clients);
     heap_del(handle);
 }
@@ -91,7 +65,7 @@ static client_t* server_get_client_bound_unchecked(server_t* server, unsigned id
     client_t* client;
     
     client = server->clients + id;
-    if(client->tcp == NULL) {
+    if(client->state != CLIENT_RUNNING) {
         return NULL;
     }
     
